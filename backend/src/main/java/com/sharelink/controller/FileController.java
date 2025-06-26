@@ -52,6 +52,20 @@ public class FileController {
     @RequestParam(value = "password", required = false) String password,
     @RequestParam(value = "expiryHours", required = false, defaultValue = "24") int expiryHours, HttpServletRequest request){
         try {
+            if (files.length > 5) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Maximum of 5 files allowed per upload."));
+            }
+
+            long totalSize = 0;
+            for (MultipartFile file : files) {
+                totalSize += file.getSize();
+            }
+            if (totalSize > 30 * 1024 * 1024) { // 30 MB in bytes
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Total upload size must not exceed 30 MB."));
+            }
+
             String shortCode = URLGenerator.generateUniqueShortCode(6, linkService);
             long now = System.currentTimeMillis();
             expiryHours = Math.max(1, Math.min(expiryHours, 168)); // Clamp between 1 and 168 hours
@@ -61,7 +75,7 @@ public class FileController {
             List<String> filenames = new ArrayList<>();
             List<Long> fileSizes = new ArrayList<>();
             String username = JWTUtil.extractUsernameFromRequest(request);
-            long totalSize = 0;
+            
 
             for (MultipartFile file : files) {
                 String key = "uploads/" + shortCode + "/" + file.getOriginalFilename();
