@@ -1,12 +1,8 @@
 package com.sharelink.controller;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -16,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,9 +23,10 @@ import com.sharelink.service.LinkService;
 import com.sharelink.service.S3Service;
 import com.sharelink.util.JWTUtil;
 import com.sharelink.util.URLGenerator;
+import com.sharelink.util.QRCodeUtil;
+
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api")
@@ -109,78 +107,12 @@ public class FileController {
             linkService.saveLink(link);
 
             Map<String, String> response = new HashMap<>();
-            response.put("shortLink", baseUrl + "/api/download/" + shortCode);
+            response.put("shortLink", baseUrl + "/" + shortCode);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Upload failed: " + e.getMessage()));
-        }
-    }
-
-    @GetMapping("/download/{shortCode}")
-    @SuppressWarnings({"UseSpecificCatch", "CallToPrintStackTrace"})
-    public void download(@PathVariable String shortCode, HttpServletResponse response, @RequestParam(value = "password", required = false) String password)
-    throws IOException {
-        ShareLink link = linkService.getLink(shortCode);
-
-        if (link == null) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        if (link.getExpiresAt() != null && now > link.getExpiresAt()) {
-            response.setStatus(HttpStatus.GONE.value());
-            return;
-        }
-
-        if (link.getPassword() != null) {
-            System.out.println("Stored hash: " + link.getPassword());
-            System.out.println("Submitted password: " + password);
-            if (link.getPassword() != null) {
-                if (password == null) {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.getWriter().write("Password required.");
-                    return;
-                }
-
-                if (!new BCryptPasswordEncoder().matches(password, link.getPassword())) {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.getWriter().write("Incorrect password.");
-                    return;
-                }
-            }
-        }
-
-        List<String> s3Keys = link.getS3Keys();
-        List<String> filenames = link.getOriginalFilenames();
-
-        try {
-            if (s3Keys.size() == 1) {
-                String url = s3Service.generatePresignedUrl(s3Keys.get(0));
-                linkService.incrementDownloadCount(shortCode);
-                response.sendRedirect(url);
-            } else {
-                // Multiple files: zip on the fly and stream
-                response.setContentType("application/zip");
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + shortCode + ".zip\"");
-
-                try (ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream())) {
-                    for (int i = 0; i < s3Keys.size(); i++) {
-                        try (InputStream s3Stream = s3Service.getObjectStream(s3Keys.get(i))) {
-                            zipOut.putNextEntry(new ZipEntry(filenames.get(i)));
-                            s3Stream.transferTo(zipOut);
-                            zipOut.closeEntry();
-                        }
-                    }
-                    zipOut.finish();
-                    linkService.incrementDownloadCount(shortCode);
-                }
-            }
-        } catch (Exception e) {
-            response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-            e.printStackTrace();
         }
     }
 
@@ -191,12 +123,6 @@ public class FileController {
         if (link == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "Link not found"));
-        }
-
-        if (link.getPassword() != null) {
-        if (password == null || !new BCryptPasswordEncoder().matches(password, link.getPassword())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Incorrect or missing password"));
-            }
         }
 
         Map<String, Object> info = new HashMap<>();
@@ -259,6 +185,54 @@ public class FileController {
         linkService.deleteLink(shortCode);
 
         return ResponseEntity.ok(Map.of("message", "Link and associated files deleted successfully."));
+    }
+
+    @PostMapping("/{shortCode}/download")
+    public ResponseEntity<?> downloadWithPassword(@PathVariable String shortCode,
+                                                  @RequestBody(required = false) Map<String, String> body) {
+        String password = body != null ? body.get("password") : null;
+
+        ShareLink link = linkService.getLink(shortCode);
+        if (link == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Link not found"));
+        }
+
+        long now = System.currentTimeMillis();
+        if (link.getExpiresAt() != null && now > link.getExpiresAt()) {
+            return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", "Link expired"));
+        }
+
+        if (link.getPassword() != null) {
+            if (password == null || !new BCryptPasswordEncoder().matches(password, link.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Incorrect or missing password"));
+            }
+        }
+
+        if (link.getS3Keys().size() == 1) {
+            String url = s3Service.generatePresignedUrl(link.getS3Keys().get(0));
+            linkService.incrementDownloadCount(shortCode);
+            return ResponseEntity.ok(Map.of("downloadUrl", url));
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Multi-file download not yet supported in this endpoint"));
+        }
+    }
+
+    @GetMapping("/qr/{shortCode}")
+    public ResponseEntity<?> getQRCode(@PathVariable String shortCode) {
+        ShareLink link = linkService.getLink(shortCode);
+        if (link == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Link not found"));
+        }
+
+        String fullUrl = baseUrl + "/" + shortCode;
+        String qrBase64 = QRCodeUtil.generateBase64QR(fullUrl);
+        if (qrBase64 == null) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "QR generation failed"));
+        }
+
+        return ResponseEntity.ok(Map.of("qr", qrBase64)); // frontend will prefix with "data:image/png;base64,"
     }
 
 }

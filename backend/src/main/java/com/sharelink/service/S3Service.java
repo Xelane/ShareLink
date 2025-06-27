@@ -20,10 +20,10 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 @Service
 public class S3Service {
 
-    @Value("${app.bucketName}")
+    @Value("${aws.s3.bucketName}")
     private String bucketName;
 
-    @Value("${aws.region}")
+    @Value("${cloud.aws.region.static}")
     private String region;
     
     private final S3Client s3Client;
