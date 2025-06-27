@@ -79,4 +79,13 @@ public class S3Service {
             .key(key)
         );
     }
+
+    public void uploadFileFromBytes(byte[] data, String key, String contentType) {
+        s3Client.putObject(PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .contentType(contentType)
+                        .build(),
+                RequestBody.fromBytes(data));
+    }
 }

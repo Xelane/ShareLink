@@ -1,8 +1,11 @@
 package com.sharelink.controller;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -22,9 +25,8 @@ import com.sharelink.model.ShareLink;
 import com.sharelink.service.LinkService;
 import com.sharelink.service.S3Service;
 import com.sharelink.util.JWTUtil;
-import com.sharelink.util.URLGenerator;
 import com.sharelink.util.QRCodeUtil;
-
+import com.sharelink.util.URLGenerator;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -73,16 +75,39 @@ public class FileController {
             List<String> filenames = new ArrayList<>();
             List<Long> fileSizes = new ArrayList<>();
             String username = JWTUtil.extractUsernameFromRequest(request);
-            
 
-            for (MultipartFile file : files) {
+            if (files.length == 1) {
+                // Single file — upload directly
+                MultipartFile file = files[0];
                 String key = "uploads/" + shortCode + "/" + file.getOriginalFilename();
                 s3Service.uploadFile(file, key);
                 s3Keys.add(key);
                 filenames.add(file.getOriginalFilename());
                 fileSizes.add(file.getSize());
-                totalSize += file.getSize();
+                totalSize = file.getSize();
+            } else {
+                // Multiple files — zip into one
+                String archiveName = shortCode + ".zip";
+                String key = "uploads/" + shortCode + "/" + archiveName;
+
+                ByteArrayOutputStream zipBytes = new ByteArrayOutputStream();
+                try (ZipOutputStream zos = new ZipOutputStream(zipBytes)) {
+                    for (MultipartFile file : files) {
+                        ZipEntry entry = new ZipEntry(file.getOriginalFilename());
+                        zos.putNextEntry(entry);
+                        file.getInputStream().transferTo(zos);
+                        zos.closeEntry();
+                    }
+                }
+                // Upload zip
+                s3Service.uploadFileFromBytes(zipBytes.toByteArray(), key, "application/zip");
+
+                s3Keys.add(key);
+                filenames.add(archiveName);
+                fileSizes.add((long) zipBytes.size());
+                totalSize = zipBytes.size();
             }
+
 
             // Save metadata to DynamoDB
             ShareLink link = new ShareLink();
@@ -136,6 +161,8 @@ public class FileController {
         long timeLeft = Math.max(0, link.getExpiresAt() - now);
         long hoursLeft = timeLeft / (60L * 60L * 1000L);
         info.put("expiresInHours", hoursLeft);
+        info.put("expired", now > link.getExpiresAt()); // Add this
+
 
         return ResponseEntity.ok(info);
     }
@@ -147,10 +174,26 @@ public class FileController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing or invalid token.");
         }
 
-        // Fetch uploads from DynamoDB tagged with this username
         List<ShareLink> links = linkService.getLinksByUsername(username);
-        return ResponseEntity.ok(links);
+
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> uploads = new ArrayList<>();
+        for (ShareLink link : links) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("shortCode", link.getShortCode());
+            map.put("fileNames", link.getOriginalFilenames());
+            map.put("fileSizes", link.getFileSizes());
+            map.put("totalSize", link.getTotalSize());
+            map.put("createdAt", link.getCreatedAt());
+            map.put("expiresAt", link.getExpiresAt());
+            map.put("downloadCount", link.getDownloadCount());
+            map.put("expired", now > link.getExpiresAt());
+            uploads.add(map);
+        }
+
+        return ResponseEntity.ok(uploads);
     }
+
 
     @DeleteMapping("/link/{shortCode}")
     public ResponseEntity<?> deleteLink(@PathVariable String shortCode, HttpServletRequest request) {
@@ -219,20 +262,17 @@ public class FileController {
         }
     }
 
-    @GetMapping("/qr/{shortCode}")
-    public ResponseEntity<?> getQRCode(@PathVariable String shortCode) {
-        ShareLink link = linkService.getLink(shortCode);
-        if (link == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Link not found"));
+    @GetMapping("/{shortCode}/qr")
+    public ResponseEntity<byte[]> getQRCode(@PathVariable String shortCode) {
+        try {
+            String url = baseUrl + "/" + shortCode;
+            byte[] qrImage = QRCodeUtil.generateQRCodeImage(url);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "image/png")
+                    .body(qrImage);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
         }
-
-        String fullUrl = baseUrl + "/" + shortCode;
-        String qrBase64 = QRCodeUtil.generateBase64QR(fullUrl);
-        if (qrBase64 == null) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "QR generation failed"));
-        }
-
-        return ResponseEntity.ok(Map.of("qr", qrBase64)); // frontend will prefix with "data:image/png;base64,"
     }
-
 }

@@ -38,6 +38,7 @@ export default function UploadPage() {
       setError('You can only upload up to 5 files.')
       return
     }
+
     const totalSize = files.reduce((acc, file) => acc + file.size, 0)
     if (totalSize > 30 * 1024 * 1024) {
       setError('Total upload size must not exceed 30 MB.')
@@ -47,19 +48,24 @@ export default function UploadPage() {
     setUploading(true)
     setError('')
     setShortLink('')
+    setUploadProgress(null)
 
     try {
       const formData = new FormData()
       files.forEach((file) => {
         formData.append('files', file)
       })
+      formData.append('expiryHours', expiry.toString())
+      if (password) {
+        formData.append('password', password)
+      }
 
-      const headers: HeadersInit = token
-        ? { Authorization: `Bearer ${token}` }
-        : {}
-      
       const xhr = new XMLHttpRequest()
       xhr.open('POST', `${import.meta.env.VITE_API_BASE}/upload`)
+
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      }
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -67,51 +73,30 @@ export default function UploadPage() {
           setUploadProgress(percent)
         }
       }
+
       xhr.onload = () => {
+        setUploading(false)
+        setUploadProgress(null)
+
         if (xhr.status === 200) {
           const data = JSON.parse(xhr.responseText)
           setShortLink(data.shortLink)
-          setError('')
         } else {
           setError('Upload failed. Please try again.')
         }
-        setUploading(false)
-        setUploadProgress(null)
       }
+
       xhr.onerror = () => {
-        setError('Upload error occurred.')
         setUploading(false)
         setUploadProgress(null)
+        setError('Upload error occurred.')
       }
 
-      const formData = new FormData()
-      files.forEach((file) => {
-        formData.append('files', file)
-        formData.append('expiryHours', expiry.toString())
-        if (password) {
-          formData.append('password', password)
-        }
-      })
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.send(formData)
-      setUploading(true)
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE}/upload`, {
-        method: 'POST',
-        headers,
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error('Upload failed')
-      }
-
-      const data = await response.json()
-      setShortLink(data.shortLink)
     } catch (err) {
-      setError('Upload failed. Please try again.')
-    } finally {
       setUploading(false)
+      setUploadProgress(null)
+      setError('Unexpected error occurred during upload.')
     }
   }
 
@@ -309,7 +294,7 @@ export default function UploadPage() {
           </a>
         </div>
       )}
-      
+
       {shortLink && (
         <div className="mt-6 p-4 bg-green-100 text-green-800 rounded max-w-md w-full">
           <p className="mb-2">
