@@ -162,7 +162,7 @@ public class FileController {
         long hoursLeft = timeLeft / (60L * 60L * 1000L);
         info.put("expiresInHours", hoursLeft);
         info.put("expired", now > link.getExpiresAt()); // Add this
-
+        info.put("passwordProtected", link.getPassword() != null);
 
         return ResponseEntity.ok(info);
     }
