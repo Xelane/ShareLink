@@ -24,10 +24,10 @@ Live: [https://shrlnk.click](https://shrlnk.click)
 
 ## 🖼️ Screenshots
 
-![Upload Page](./assets/screenshots/upload.png)
-![Signup Page](./assets/screenshots/signup.png)
-![Dashboard View](./assets/screenshots/dashboard.png)
-![Download Page](./assets/screenshots/download.png)
+![Upload Page](./screenshots/upload.png)
+![Signup Page](./screenshots/signup.png)
+![Dashboard View](./screenshots/dashboard.png)
+![Download Page](./screenshots/download.png)
 
 ---
 
