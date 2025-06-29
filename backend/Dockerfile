@@ -1,12 +1,11 @@
-# Use OpenJDK base image
-FROM openjdk:17-jdk-slim
-
-# Set the working directory
+# ---- Build Stage ----
+FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
+COPY . .
+RUN mvn clean package -DskipTests
 
-# Copy the Spring Boot JAR file (you'll build it later)
-COPY target/*.jar app.jar
-
-# Run the JAR file
+# ---- Run Stage ----
+FROM openjdk:17-jdk-slim
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
-
