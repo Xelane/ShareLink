@@ -19,6 +19,16 @@ Live: [https://shrlnk.click](https://shrlnk.click)
 - ☁️ **AWS-integrated** (S3, Cognito, DynamoDB)
 - 🐳 **Docker-ready for local/cloud deployment**
 
+
+---
+
+## 🖼️ Screenshots
+
+![Upload Page](./assets/screenshots/upload.png)
+![Signup Page](./assets/screenshots/signup.png)
+![Dashboard View](./assets/screenshots/dashboard.png)
+![Download Page](./assets/screenshots/download.png)
+
 ---
 
 ## 🛠️ Tech Stack
@@ -125,12 +135,6 @@ Frontend:
 - **Cognito User Pool + App Client** — For login/auth
 - **IAM Role + Policy** — With permissions to access S3 and DynamoDB
 - **Lambda Function (Optional)** — For expired file cleanup (e.g., every 15 minutes)
-
----
-
-## 🖼️ Screenshots
-
-(Coming soon)
 
 ---
 
