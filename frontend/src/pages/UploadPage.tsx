@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
-import { EyeIcon, EyeSlashIcon, XMarkIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { EyeIcon, EyeSlashIcon, XMarkIcon, ClipboardIcon, CheckIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline'
 
 interface TokenPayload {
   email?: string
@@ -31,6 +32,12 @@ export default function UploadPage() {
   const token = localStorage.getItem('accessToken')
   const user = token ? jwtDecode<TokenPayload>(token) : null
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (token) {
+      navigate('/dashboard')
+    }
+  }, [token])
 
   const handleUpload = async () => {
     if (files.length === 0) return setError('Please select at least one file to upload.')
@@ -68,6 +75,12 @@ export default function UploadPage() {
           setShortLink(data.shortLink)
           const code = data.shortLink.split('/').pop()
           setShortCode(code || '')
+          
+          // Reset fields (add this block)
+          setFiles([])
+          setPassword('')
+          setCopied(false)
+          setExpiry(24)
         } else {
           setError('Upload failed. Please try again.')
         }
@@ -100,22 +113,11 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white text-black p-6">
       <div className="w-full max-w-2xl bg-white rounded-xl p-6 shadow-lg space-y-6">
-        <h2 className="text-2xl font-semibold text-center">Upload Files</h2>
+        <h2 className="text-2xl font-semibold text-center flex items-center justify-center gap-2">
+          <CloudArrowUpIcon className="h-6 w-6" /> Upload Files
+        </h2>
 
-        {user ? (
-          <div className="text-sm text-center text-gray-600">
-            Logged in as: {user.email || user.sub}
-            <button
-              onClick={() => {
-                localStorage.removeItem('accessToken')
-                navigate('/login')
-              }}
-              className="ml-4 text-blue-600 hover:underline"
-            >
-              Log out
-            </button>
-          </div>
-        ) : (
+        {!user && (
           <div className="text-sm text-center text-gray-600">
             <p>Want to manage your uploads later?</p>
             <div className="mt-2 flex justify-center gap-4">

@@ -8,7 +8,8 @@ import {
   TrashIcon,
   ClipboardIcon,
   CheckIcon,
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 
 interface TokenPayload {
@@ -41,7 +42,7 @@ export default function DashboardPage() {
   const [successInfo, setSuccessInfo] = useState<{ url: string; qrUrl: string } | null>(null)
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [loadingUploads, setLoadingUploads] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -109,7 +110,7 @@ export default function DashboardPage() {
           <button
             onClick={() => {
               localStorage.removeItem('accessToken')
-              navigate('/login')
+              navigate('/')
             }}
             className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
           >
@@ -139,6 +140,35 @@ export default function DashboardPage() {
               onChange={(e) => setUploadFiles(Array.from(e.target.files || []))}
             />
           </div>
+          
+          {uploadFiles.length > 0 && (
+            <div className="text-sm text-gray-700 space-y-2">
+              <h3 className="font-medium">Selected files:</h3>
+              <ul className="space-y-2">
+                {uploadFiles.map((file, index) => (
+                  <li
+                    key={file.name}
+                    className="flex justify-between items-center border px-3 py-2 rounded bg-white shadow-sm"
+                  >
+                    <span>{file.name} — {formatBytes(file.size)}</span>
+                    <button
+                      onClick={() => {
+                        const updated = [...uploadFiles]
+                        updated.splice(index, 1)
+                        setUploadFiles(updated)
+                      }}
+                      className="text-sm px-2 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="font-medium">
+                Total size: {formatBytes(uploadFiles.reduce((acc, file) => acc + file.size, 0))}
+              </p>
+            </div>
+          )}
 
           <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -216,35 +246,82 @@ export default function DashboardPage() {
             </div>
           </form>
 
-          {uploadError && <p className="text-sm text-red-500">{uploadError}</p>}
-
-          {successInfo && (
-            <div className="bg-green-100 text-green-900 rounded p-4 mt-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <a href={successInfo.url} target="_blank" rel="noopener noreferrer" className="underline break-all">
-                  {successInfo.url}
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(successInfo.url)
-                    setCopiedLink(successInfo.url)
-                    setTimeout(() => setCopiedLink(null), 1500)
-                  }}
-                  className="p-1 rounded-full hover:bg-gray-200 transition active:scale-95"
-                >
-                  {copiedLink === successInfo.url ? (
-                    <CheckIcon className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <ClipboardIcon className="h-5 w-5 text-gray-600" />
-                  )}
-                </button>
-              </div>
-              <img src={successInfo.qrUrl} alt="QR Code" className="w-32 h-32" />
-            </div>
-          )}
-
           <button
-            onClick={() => {}}
+            onClick={() => {
+              if (uploadFiles.length === 0) return setUploadError('Please select at least one file to upload.')
+              if (uploadFiles.length > 5) return setUploadError('You can only upload up to 5 files.')
+              const totalSize = uploadFiles.reduce((acc, file) => acc + file.size, 0)
+              if (totalSize > 30 * 1024 * 1024) return setUploadError('Total upload size must not exceed 30 MB.')
+
+              setUploading(true)
+              setUploadError('')
+              setSuccessInfo(null)
+              setUploadProgress(null)
+
+              try {
+                const formData = new FormData()
+                uploadFiles.forEach((file) => formData.append('files', file))
+                formData.append('expiryHours', expiry.toString())
+                if (password) formData.append('password', password)
+
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `${import.meta.env.VITE_API_BASE}/upload`)
+                if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+                xhr.upload.onprogress = (event) => {
+                  if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100)
+                    setUploadProgress(percent)
+                  }
+                }
+
+                xhr.onload = async () => {
+                  setUploading(false)
+                  setUploadProgress(null)
+                  if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText)
+                    const shortCode = data.shortLink.split('/').pop()
+                    setSuccessInfo({
+                      url: data.shortLink,
+                      qrUrl: `${import.meta.env.VITE_API_BASE}/${shortCode}/qr`,
+                    })
+
+                    // Reset fields
+                    setUploadFiles([])
+                    setPassword('')
+                    setCopiedLink(null)
+                    setExpiry(24)
+
+                    // Refresh upload history
+                    try {
+                      const res = await fetch(`${import.meta.env.VITE_API_BASE}/my-uploads`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      })
+                      if (res.ok) {
+                        const refreshed = await res.json()
+                        setUploads(refreshed)
+                      }
+                    } catch {
+                      // silently ignore
+                    }
+                  } else {
+                    setUploadError('Upload failed. Please try again.')
+                  }
+                }
+
+                xhr.onerror = () => {
+                  setUploading(false)
+                  setUploadProgress(null)
+                  setUploadError('Upload error occurred.')
+                }
+
+                xhr.send(formData)
+              } catch {
+                setUploading(false)
+                setUploadProgress(null)
+                setUploadError('Unexpected error occurred during upload.')
+              }
+            }}
             disabled={uploading || !!uploadError || uploadFiles.length === 0}
             className={`w-full py-2 rounded font-medium text-white transition ${
               uploading || !!uploadError || uploadFiles.length === 0
@@ -259,6 +336,66 @@ export default function DashboardPage() {
                 : 'Upload'}
           </button>
         </div>
+        
+        {uploadProgress !== null && (
+          <div className="w-full mt-2">
+            <div className="bg-gray-200 rounded-full h-4">
+              <div
+                className="bg-blue-600 h-4 rounded-full transition-all"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <p className="text-sm text-center text-gray-600 mt-1">
+              Uploading: {uploadProgress}%
+            </p>
+          </div>
+        )}
+
+        {uploadError && <p className="text-sm text-red-500">{uploadError}</p>}
+
+        {successInfo && (
+          <>
+            {/* Green box: ONLY message + link + copy button */}
+            <div className="p-4 bg-green-100 text-green-800 rounded-md text-sm text-center space-y-2 w-full">
+              <p>Upload successful!</p>
+              <div className="flex items-center justify-center gap-2 break-all">
+                <a
+                  href={successInfo.url}
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {successInfo.url}
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(successInfo.url)
+                    setCopiedLink(successInfo.url)
+                    setTimeout(() => setCopiedLink(null), 1500)
+                  }}
+                  aria-label="Copy link"
+                  className="p-1 rounded-full hover:bg-gray-200 transition active:scale-95"
+                >
+                  {copiedLink === successInfo.url ? (
+                    <CheckIcon className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <ClipboardIcon className="w-5 h-5 text-gray-600" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* QR code: shown below, outside the green box */}
+            <div className="flex flex-col items-center mt-4 space-y-2">
+              <img
+                src={successInfo.qrUrl}
+                alt="QR Code"
+                className="w-32 h-32 border rounded"
+              />
+              <p className="text-sm text-gray-600">Scan to download</p>
+            </div>
+          </>
+        )}
 
         <div className="bg-white rounded-xl p-6 shadow space-y-4">
           <h2 className="text-xl font-semibold">Upload History</h2>
