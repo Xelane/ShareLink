@@ -1,99 +1,151 @@
 # ShareLink 🔗
 
-A full-stack secure file-sharing platform that lets users upload files, generate short links, protect downloads with passwords, set expiry times, and track download stats — all backed by AWS.
+A full-stack secure file-sharing platform that lets users upload files, generate short links, protect downloads with passwords, set expiry times, and track download stats — all powered by AWS.
 
+Live: [https://shrlnk.click](https://shrlnk.click)
+
+---
 
 ## ✨ Features
 
-- 🔒 **Password-protected downloads**
+- 🔐 **Password-protected downloads**
 - ⏳ **Expiring links** (1–168 hours)
 - 🗂️ **Multi-file uploads** (auto-zipped)
-- 📦 **30MB max upload, 5 files limit**
-- 🧾 **Download stats + metadata**
+- 📆 **30MB max upload, 5 files limit**
+- 📟 **Download stats + metadata**
 - 👤 **User-authenticated dashboard**
 - 📱 **QR code support for links**
-- ⚡ **Fast, clean URLs like `domain.com/abc123`**
-- ☁️ **AWS-backed** with S3 and DynamoDB
-- 🐳 **Docker-ready**
+- ⚡ **Clean short URLs like** `shrlnk.click/abc123`
+- ☁️ **AWS-integrated** (S3, Cognito, DynamoDB)
+- 🐳 **Docker-ready for local/cloud deployment**
+
+---
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- React + Vite
+
+- React (Vite)
 - Tailwind CSS
 - Heroicons
+- Hosted on Northflank + Custom Domain
 
 ### Backend
+
 - Spring Boot (Java 17)
 - AWS SDK v2 (S3 + DynamoDB)
-- Amazon Cognito (user auth)
-- BCrypt (for secure passwords)
+- Amazon Cognito (JWT auth)
+- BCrypt (password encryption)
 - ZXing (QR Code generation)
+- Scheduled AWS Lambda for cleanup
 
 ### Infrastructure
-- AWS S3 — File storage
-- AWS DynamoDB — Link metadata
-- AWS Lambda — Periodic S3 cleanup
-- Docker (optional)
+
+- AWS S3 — File Storage
+- AWS DynamoDB — Metadata + Tracking
+- AWS Cognito — User Login System
+- AWS Lambda — Auto deletion
+- Docker + Nginx
+- Northflank (Cloud Hosting)
+
+---
 
 ## 🚀 Usage
 
-### 1. Uploading Files
-- Upload 1–5 files (max 30MB total)
-- Set expiry duration (default: 24h)
+### Uploading
+
+- Select up to **5 files** (total <= 30MB)
+- Choose expiry time (1h – 168h)
 - Optionally add a password
-- Get a short link + QR code
+- Get a **short link** + **QR code** instantly
 
-### 2. Downloading
-- Visit the short link (e.g., `/abc123`)
+### Downloading
+
+- Access via short link (`shrlnk.click/abc123`)
 - Enter password (if required)
-- Auto-download file or zip
+- Download the original file or a zip
 
-### 3. Authenticated Users
-- Log in with Cognito
-- View and manage uploads
-- Delete your own links
+### Dashboard (Authenticated)
+
+- Secure login with Cognito
+- View all your uploaded files
+- See expiry, download count, size
+- Delete links on demand
+
+---
 
 ## 📦 Deployment
 
-### Backend
+### Backend (Docker)
+
 ```bash
-./mvnw clean package
-java -jar target/sharelink-backend.jar
+docker build -t sharelink-backend .
+docker run -p 8080:8080 sharelink-backend
 ```
 
-Or using Docker:
+### Frontend (Docker)
+
 ```bash
-docker build -t sharelink .
-docker run -p 8080:8080 sharelink
+docker build -t sharelink-frontend .
+docker run -p 80:80 sharelink-frontend
 ```
 
-### Frontend
-```bash
-npm install
-npm run build
-```
-Copy `dist/` to Spring Boot’s `src/main/resources/static` or deploy via Netlify/Vercel.
+### Environment Variables
 
-## 📁 AWS Setup (Required)
-Ensure these resources are configured:
+Set via deployment platform (e.g., Northflank):
 
-- ✅ S3 Bucket (`sharelink-bucket`)
-- ✅ DynamoDB Table (`ShareLinks`)
-- ✅ Cognito User Pool + App Client
-- ✅ Lambda cleanup function (optional but recommended)
+Backend:
 
-Secrets like AWS credentials and pool IDs should be stored in `application.properties` (excluded via `.gitignore`).
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `AWS_S3_BUCKET`
+- `COGNITO_CLIENT_ID`
+- `COGNITO_USER_POOL_ID`
+- `COGNITO_JWKS_URL`
+- `APP_BASE_URL` (e.g., `https://shrlnk.click`)
+- `APP_CORS_ALLOWED_ORIGINS` (e.g., `https://shrlnk.click`)
 
-## 📷 Screenshots (Pending)
+Frontend:
+
+- `VITE_API_BASE` (e.g., `https://shrlnk.click/api`)
+- `VITE_COGNITO_USER_POOL_ID`
+- `VITE_COGNITO_CLIENT_ID`
+- `VITE_COGNITO_REGION`
+- `VITE_BASE_URL` (e.g., `https://shrlnk.click`)
+
+---
+
+## 📊 AWS Setup
+
+### Required
+
+- **S3 Bucket** — `sharelink-bucket`
+- **DynamoDB Table** — `ShareLinks`
+- **Cognito User Pool + App Client** — For login/auth
+- **IAM Role + Policy** — With permissions to access S3 and DynamoDB
+- **Lambda Function (Optional)** — For expired file cleanup (e.g., every 15 minutes)
+
+---
+
+## 🖼️ Screenshots
+
+(Coming soon)
+
+---
 
 ## 📄 License
 
-This project is released under the [MIT License](LICENSE).
+MIT License. See [LICENSE](LICENSE).
+
+---
 
 ## 🙌 Acknowledgements
 
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Heroicons](https://heroicons.com/)
-- [ZXing QR Generator](https://github.com/zxing)
+- [ZXing](https://github.com/zxing)
 - [AWS SDK for Java](https://docs.aws.amazon.com/sdk-for-java/)
+- [Northflank](https://northflank.com/)
+
+
