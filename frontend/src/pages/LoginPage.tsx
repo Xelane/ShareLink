@@ -3,6 +3,7 @@ import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js'
 import UserPool from '../utils/UserPool'
 import { useNavigate } from 'react-router-dom'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import Layout from '../components/Layout'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -21,6 +22,16 @@ export default function LoginPage() {
       emailInputRef.current.focus()
     }
   }, [forgotMode])
+
+  useEffect(() => {
+    if (!error) return;
+
+    const timeout = setTimeout(() => {
+      setError('');
+    }, 3000); // clear after 3 seconds
+
+    return () => clearTimeout(timeout); // cleanup on next render
+  }, [error]);
 
   const handleLogin = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -64,80 +75,71 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#242424] text-black dark:text-white p-6">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg space-y-6">
+    <Layout>
+      <div className="w-full max-w-md bg-[var(--bg-color)] text-[var(--text-color)] p-6 rounded-xl shadow-lg space-y-6 border border-[var(--color-mid)]">
         <h2 className="text-2xl font-semibold text-center">
           {forgotMode ? 'Reset Password' : 'Login'}
         </h2>
 
-        <form onSubmit={handleLogin} className="space-y-3">
-          <label htmlFor="email" className="sr-only">Email</label>
+        <form onSubmit={handleLogin} className="space-y-4">
           <input
             ref={emailInputRef}
-            id="email"
             type="email"
             placeholder="Email"
-            className="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 border rounded-md bg-[var(--bg-color)] text-[var(--text-color)]"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
           {!forgotMode && (
-            <>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  className="w-full px-3 py-2 pr-10 border rounded dark:bg-gray-700 dark:text-white"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onMouseDown={() => setShowPassword(true)}
-                  onMouseUp={() => setShowPassword(false)}
-                  onMouseLeave={() => setShowPassword(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      setShowPassword((prev) => !prev)
-                    }
-                  }}
-                  tabIndex={0}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full 
-                             hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer 
-                             transition active:scale-90"
-                >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-700 dark:text-white" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-700 dark:text-white" />
-                  )}
-                </button>
-              </div>
-              <div className="mb-2" />
-            </>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                className="w-full px-3 py-2 pr-10 border rounded-md bg-[var(--bg-color)] text-[var(--text-color)]"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onMouseDown={() => setShowPassword(true)}
+                onMouseUp={() => setShowPassword(false)}
+                onMouseLeave={() => setShowPassword(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setShowPassword((prev) => !prev)
+                  }
+                }}
+                tabIndex={0}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[var(--color-mid)] transition-colors cursor-pointer"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-[var(--text-color)]" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-[var(--text-color)]" />
+                )}
+              </button>
+            </div>
           )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
-          {info && <p className="text-sm text-green-500">{info}</p>}
+          {info && <p className="text-sm text-[var(--text-subtle)]">{info}</p>}
 
           {forgotMode ? (
             <>
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition"
+                className="w-full py-2 bg-[var(--color-brand)] hover:bg-[var(--color-brandl)] text-white font-medium rounded transition cursor-pointer"
               >
                 Send Reset Email
               </button>
               <p
-                className="text-center text-sm text-blue-600 underline cursor-pointer hover:text-blue-800"
+                className="text-center text-sm text-[#2563eb] hover:text-[#0e43d6] underline cursor-pointer"
                 onClick={() => {
                   setForgotMode(false)
                   setInfo('')
@@ -152,36 +154,49 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:opacity-50"
+                className="w-full py-2 bg-[var(--color-brand)] hover:bg-[var(--color-brandl)] text-white font-medium rounded transition disabled:opacity-50 cursor-pointer"
               >
                 {loading ? 'Logging in...' : 'Login'}
               </button>
-
-              <p
-                className="text-center text-sm text-blue-600 cursor-pointer underline mt-2 hover:text-blue-800"
-                onClick={() => {
-                  setForgotMode(true)
-                  setInfo('')
-                  setError('')
-                }}
-              >
-                Forgot password?
+              <p className="text-center text-sm">
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setForgotMode(true)
+                    setInfo('')
+                    setError('')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setForgotMode(true)
+                      setInfo('')
+                      setError('')
+                    }
+                  }}
+                  className="cursor-pointer font-medium underline text-[#2563eb] hover:text-[#0e43d6] transition"
+                >
+                  Forgot password?
+                </span>
               </p>
 
-              <p className="text-center text-sm text-gray-500 mt-2">
+              <p className="text-center text-sm text-[var(--text-subtle)]">
                 Don’t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => navigate('/signup')}
-                  className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                <a
+                  href="/signup"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate('/signup')
+                  }}
+                  className="!underline"
                 >
                   Sign Up
-                </button>
+                </a>
               </p>
             </>
           )}
         </form>
       </div>
-    </div>
+    </Layout>
   )
 }

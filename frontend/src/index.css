@@ -1,11 +1,46 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @custom-variant dark (&:where(.dark, .dark *));
+
+
+.light {
+  /* Light theme colors */
+  --bg-color2: #252527;
+  --bg-color: #2d2d30;
+  --text-color: #f5f5f5;
+  --text-subtle: #7c7c7c;
+  --color-brand: #8d4ef3;
+  --color-brandl: #7f2ee9;
+  --color-mid: #585858;
+}
+*{
+  transition-property: all;
+  transition-duration: 0.5s;
+}
+.dark {
+  /* Dark theme overrides */
+  --bg-color: #f5f5f5;
+  --bg-color2: #ececec;
+  --text-color: #252527;
+  --text-subtle: #7c7c7c;
+  --color-brand: #8d4ef3;
+  --color-brandl: #7f2ee9;
+  --color-mid: #c9c9c9;
+}
+
+.header {
+  color:var(--text-color);
+  background:var(--bg-color);
+}
 
 /* Global font/rendering */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* 3. Set Inter as your primary font-family */
+  font-family: "Inter", sans-serif;
+  font-optical-sizing: auto; /* Keep this for variable font optimization */
   line-height: 1.5;
-  font-weight: 400;
+  font-weight: 400; /* Set a default weight, e.g., Regular */
+  font-style: normal; /* Set a default style if you're not using italics by default */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -26,7 +61,7 @@ a {
   text-decoration: none;
 }
 a:hover {
-  color: #1d4ed8;
+  color: #0e43d6;
 }
 
 /* Optional: You can style h1 here or in components */

@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import Layout from '../components/Layout'
 
 function formatBytes(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
@@ -18,7 +19,8 @@ export default function DownloadPage() {
   const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
-    axios.get(`${import.meta.env.VITE_API_BASE}/info/${shortCode}`)
+    axios
+      .get(`${import.meta.env.VITE_API_BASE}/info/${shortCode}`)
       .then(res => setFileInfo(res.data))
       .catch(() => setFatalError('Invalid or expired link.'))
   }, [shortCode])
@@ -40,64 +42,91 @@ export default function DownloadPage() {
     }
   }
 
-
   if (fatalError) {
-    return <div className="min-h-screen flex items-center justify-center text-red-600 dark:text-red-400">{fatalError}</div>
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen text-red-600 dark:text-red-400">
+          {fatalError}
+        </div>
+      </Layout>
+    )
   }
 
   if (!fileInfo) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-600 dark:text-gray-300">Loading...</div>
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen text-gray-600 dark:text-gray-300">
+          Loading...
+        </div>
+      </Layout>
+    )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#242424] text-black dark:text-white p-6">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg space-y-6">
+    <Layout>
+      <div className="w-full max-w-md bg-[var(--bg-color)] text-[var(--text-color)] p-6 rounded-xl shadow-lg space-y-6 border border-[var(--color-mid)]">
         <h2 className="text-2xl font-semibold text-center">Download File</h2>
-        <div className="space-y-2 text-sm">
-          <p><span className="font-medium">File:</span> {fileInfo.fileNames?.[0]}</p>
-          <p><span className="font-medium">Size:</span> {formatBytes(fileInfo.fileSizes?.[0] || 0)}</p>
-          <p><span className="font-medium">Downloads:</span> {fileInfo.downloadCount}</p>
-        </div>
 
-        {fileInfo.passwordProtected && !fileInfo.expired &&(
+       <div className="flex gap-4 items-center bg-[var(--bg-color2)] border border-[var(--color-mid)] rounded-lg p-4">
+          <div className="flex-1 space-y-2 text-sm">
+            <div>
+              <p className="text-[var(--text-subtle)]">File Name</p>
+              <p className="font-medium break-words">{fileInfo.fileNames?.[0]}</p>
+            </div>
+            <div>
+              <p className="text-[var(--text-subtle)]">Size</p>
+              <p className="font-medium">{formatBytes(fileInfo.fileSizes?.[0] || 0)}</p>
+            </div>
+            {!fileInfo.expired && (
+              <p className="text-xs text-[var(--text-subtle)]">
+                Link expires in {fileInfo.expiresInHours} hour{fileInfo.expiresInHours !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {!fileInfo.expired && (
+            <img
+              src={`${import.meta.env.VITE_API_BASE}/${shortCode}/qr`}
+              alt="QR Code"
+              className="w-28 h-28 border rounded"
+            />
+          )}
+        </div>
+        {fileInfo.passwordProtected && !fileInfo.expired && (
+          <p className="text-sm text-[var(--text-subtle)] font-medium">
+            This file is password protected
+          </p>
+        )}
+        {fileInfo.passwordProtected && !fileInfo.expired && (
           <input
             type="password"
-            className="w-full border border-gray-300 dark:border-gray-600 px-3 py-2 rounded-md dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 border rounded-md bg-[var(--bg-color)] text-[var(--text-color)]"
             placeholder="Enter password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         )}
+
         {fileInfo.expired ? (
-          <p className="text-red-500 font-medium">This link has expired.</p>
-        ) : (
-          <p>
-            <span className="font-medium">Expires in:</span> {fileInfo.expiresInHours} hour{fileInfo.expiresInHours !== 1 && 's'}
+          <p className="text-red-500 font-medium text-center">
+            This link has expired.
           </p>
-        )}
+        ) : (
+          <>
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="w-full py-2 bg-[var(--color-brand)] hover:bg-[var(--color-brandl)] text-white font-medium rounded transition disabled:opacity-50 cursor-pointer"
+            >
+              {downloading ? 'Preparing download...' : 'Download'}
+            </button>
 
-        {fileInfo.expired ? null : (
-        <img
-          src={`${import.meta.env.VITE_API_BASE}/${shortCode}/qr`}
-          alt="QR Code"
-          className="w-32 h-32 mt-6 border rounded"
-        />
-        )}
-
-        {fileInfo.expired ? null : (
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition disabled:opacity-50"
-          >
-            {downloading ? 'Preparing download...' : 'Download'}
-          </button>
-        )}
-
-        {inlineError && (
-          <p className="text-sm text-red-500 text-center">{inlineError}</p>
+            {inlineError && (
+              <p className="text-sm text-red-500 text-center">{inlineError}</p>
+            )}
+          </>
         )}
       </div>
-    </div>
+    </Layout>
   )
 }
