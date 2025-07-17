@@ -1,6 +1,6 @@
 # ShareLink
 
-A secure file-sharing platform with expiring links and password protection. Upload files, get short URLs, and track downloads.
+A secure file-sharing platform with expiring links and password protection. Upload files, get QR codes + short URLS, and track downloads.
 
 **Live:** [https://shrlnk.click](https://shrlnk.click)
 
