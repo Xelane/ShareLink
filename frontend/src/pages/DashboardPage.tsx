@@ -108,21 +108,6 @@ export default function DashboardPage() {
       <Header />
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-color)] text-black p-6">
         <div className="w-full max-w-2xl space-y-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-              <p className="text-sm text-gray-600">Logged in as: {user?.email || user?.sub}</p>
-            </div>
-            <button
-              onClick={() => {
-                localStorage.removeItem('accessToken')
-                navigate('/')
-              }}
-              className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
-            >
-              <ArrowRightOnRectangleIcon className="h-5 w-5" /> Logout
-            </button>
-          </div>
 
           <div className="bg-white rounded-xl p-6 shadow space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
